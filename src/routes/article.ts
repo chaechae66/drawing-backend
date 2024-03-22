@@ -70,5 +70,16 @@ router.post(
   }
 );
 
+router.delete("/:imgID", async (req, res, next) => {
+  try {
+    await Article.findByIdAndDelete(req.params.imgID);
+    res.json({
+      success: true,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 module.exports = router;
 export {};

@@ -57,8 +57,8 @@ router.post(
   async (req, res, next) => {
     try {
       const post = await Article.findById(req.params.imgID);
-      post.article.data = req.file.buffer.toString("base64");
-      post.article.contentType = req.file.mimetype;
+      post.data = req.file.buffer.toString("base64");
+      post.contentType = req.file.mimetype;
       await post.save();
       res.json({
         success: true,

@@ -25,11 +25,10 @@ const upload = multer({
 router.post("/", upload.single("drawingImage"), async (req, res, next) => {
   try {
     const article = new Article({
-      article: {
-        data: req.file.buffer.toString("base64"),
-        contentType: req.file.mimetype,
-        user: JSON.parse(req.body.user),
-      },
+      data: req.file.buffer.toString("base64"),
+      contentType: req.file.mimetype,
+      user: JSON.parse(req.body.user),
+      regDate: Date.now(),
     });
     await article.save();
     res.json({

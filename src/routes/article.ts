@@ -187,5 +187,36 @@ router.get("/:imgID/comment/:userID", async (req, res, next) => {
   }
 });
 
+router.put("/comment/:commentID", async (req, res, next) => {
+  try {
+    const comment = await Comment.findById(req.params.commentID);
+    comment.body = req.body.comment;
+    await comment.save();
+
+    res.json({
+      success: true,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.delete("/:imgID/comment/:commentID", async (req, res, next) => {
+  try {
+    const article = await Article.findById(req.params.imgID);
+    article.commentCount--;
+    await Promise.all([
+      article.save(),
+      Comment.findByIdAndDelete(req.params.commentID),
+    ]);
+
+    res.json({
+      success: true,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 module.exports = router;
 export {};

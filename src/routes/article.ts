@@ -3,6 +3,7 @@ const express = require("express"),
   router = express.Router();
 const Article = require("../models/article");
 const Like = require("../models/like");
+const Comment = require("../models/comment");
 const ObjectId = require("mongoose").Types.ObjectId;
 
 const upload = multer({
@@ -124,7 +125,7 @@ router.post("/:imgID/like/:userID", async (req, res, next) => {
       const newLike = new Like({
         user: userID,
         isLike: true,
-        articleID: imgID,
+        articleID: new ObjectId(imgID),
       });
       article.likeCount++;
       await Promise.all([newLike.save(), article.save()]);
@@ -138,6 +139,47 @@ router.post("/:imgID/like/:userID", async (req, res, next) => {
 
     res.json({
       success: true,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post("/:imgID/comment/:userID", async (req, res, next) => {
+  try {
+    const { imgID, userID } = req.params;
+
+    const article = await Article.findById(imgID);
+
+    const newComment = new Comment({
+      articleID: new ObjectId(imgID),
+      user: userID,
+      body: req.body.comment,
+      regDate: Date.now(),
+    });
+
+    article.commentCount++;
+
+    await Promise.all([newComment.save(), article.save()]);
+
+    res.json({
+      success: true,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get("/:imgID/comment/:userID", async (req, res, next) => {
+  try {
+    const { imgID } = req.params;
+    const commentsByArticleID = await Comment.find({
+      articleID: new ObjectId(imgID),
+    }).lean();
+
+    res.json({
+      success: true,
+      data: commentsByArticleID,
     });
   } catch (e) {
     next(e);

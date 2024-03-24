@@ -74,6 +74,7 @@ router.delete("/:imgID", async (req, res, next) => {
     await Promise.all([
       Article.findByIdAndDelete(req.params.imgID),
       Like.deleteMany({ articleID: new ObjectId(req.params.imgID) }),
+      Comment.deleteMany({ articleID: new ObjectId(req.params.imgID) }),
     ]);
     res.json({
       success: true,

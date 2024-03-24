@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const Schema = mongoose.Schema;
 
 const likeSchema = new mongoose.Schema(
   {
@@ -11,7 +12,7 @@ const likeSchema = new mongoose.Schema(
       require: true,
     },
     articleID: {
-      type: mongoose.Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: "Article",
     },
   },

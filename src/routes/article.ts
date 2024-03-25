@@ -1,9 +1,9 @@
 const express = require("express"),
   multer = require("multer"),
   router = express.Router();
-const Article = require("../models/article");
-const Like = require("../models/like");
-const Comment = require("../models/comment");
+const Article = require("../models/article/article");
+const Like = require("../models/article/like");
+const Comment = require("../models/article/comment");
 const ObjectId = require("mongoose").Types.ObjectId;
 
 const upload = multer({

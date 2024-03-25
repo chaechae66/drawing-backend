@@ -6,6 +6,7 @@ let mongoose = require("mongoose"),
 require("dotenv").config();
 
 const article = require("./routes/article");
+const user = require("./routes/user");
 
 const connection = process.env.mongodbURL;
 
@@ -23,6 +24,7 @@ app.use(
 );
 app.use(cors());
 app.use("/article", article);
+app.use("/user", user);
 
 const port = process.env.PORT || 4000;
 app.listen(port, () => {

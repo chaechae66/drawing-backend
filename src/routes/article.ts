@@ -4,7 +4,9 @@ const express = require("express"),
 const Article = require("../models/article/article");
 const Like = require("../models/article/like");
 const Comment = require("../models/article/comment");
+const User = require("../models/user/user");
 const ObjectId = require("mongoose").Types.ObjectId;
+const authJWT = require("../routes/user/authJWT");
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -22,22 +24,34 @@ const upload = multer({
   },
 });
 
-router.post("/", upload.single("drawingImage"), async (req, res, next) => {
-  try {
-    const article = new Article({
-      data: req.file.buffer.toString("base64"),
-      contentType: req.file.mimetype,
-      user: JSON.parse(req.body.user),
-      regDate: Date.now(),
-    });
-    await article.save();
-    res.json({
-      success: true,
-    });
-  } catch (e) {
-    next(e);
+router.post(
+  "/",
+  upload.single("drawingImage"),
+  authJWT,
+  async (req, res, next) => {
+    const userUUID = JSON.parse(req.body.user);
+    const userID = req.tokenID;
+    try {
+      const userInfo = await User.findOne({ id: userID });
+      const article = new Article({
+        data: req.file.buffer.toString("base64"),
+        contentType: req.file.mimetype,
+        user: !userID ? userUUID : null,
+        userInfo: userInfo && {
+          id: userInfo.id,
+          nickname: userInfo.nickname,
+        },
+        regDate: Date.now(),
+      });
+      await article.save();
+      res.json({
+        success: true,
+      });
+    } catch (e) {
+      next(e);
+    }
   }
-});
+);
 
 router.get("/", async (req, res, next) => {
   try {
@@ -54,9 +68,20 @@ router.get("/", async (req, res, next) => {
 router.post(
   "/:imgID",
   upload.single("drawingImage"),
+  authJWT,
   async (req, res, next) => {
+    const loginID = req.tokenID;
+    const uuid = req.headers.uuid;
     try {
       const post = await Article.findById(req.params.imgID);
+
+      if (post.user ? post.user !== uuid : post.userInfo.id !== loginID) {
+        res.status(401).send({
+          success: false,
+          message: "권한이 없습니다.",
+        });
+        return;
+      }
       post.data = req.file.buffer.toString("base64");
       post.contentType = req.file.mimetype;
       await post.save();
@@ -69,8 +94,19 @@ router.post(
   }
 );
 
-router.delete("/:imgID", async (req, res, next) => {
+router.delete("/:imgID", authJWT, async (req, res, next) => {
+  const loginID = req.tokenID;
+  const uuid = req.headers.uuid;
   try {
+    const post = await Article.findById(req.params.imgID);
+
+    if (post.user ? post.user !== uuid : post.userInfo.id !== loginID) {
+      res.status(401).send({
+        success: false,
+        message: "권한이 없습니다.",
+      });
+      return;
+    }
     await Promise.all([
       Article.findByIdAndDelete(req.params.imgID),
       Like.deleteMany({ articleID: new ObjectId(req.params.imgID) }),
@@ -96,11 +132,13 @@ router.get("/:imgID", async (req, res, next) => {
   }
 });
 
-router.get("/:imgID/like/:userID", async (req, res, next) => {
+router.get("/:imgID/like", authJWT, async (req, res, next) => {
+  const loginID = req.tokenID;
+  const uuid = req.headers.uuid;
   try {
-    const { imgID, userID } = req.params;
+    const { imgID } = req.params;
     const likeUsers = await Like.findOne({
-      user: userID,
+      user: loginID ? loginID : uuid,
       articleID: new ObjectId(imgID),
     }).lean();
 
@@ -113,18 +151,22 @@ router.get("/:imgID/like/:userID", async (req, res, next) => {
   }
 });
 
-router.post("/:imgID/like/:userID", async (req, res, next) => {
+router.post("/:imgID/like", authJWT, async (req, res, next) => {
+  const loginID = req.tokenID;
+  const uuid = req.headers.uuid;
   try {
-    const { imgID, userID } = req.params;
+    const { imgID } = req.params;
 
-    const [article, like] = await Promise.all([
-      Article.findById(imgID),
-      Like.findOne({ user: userID, articleID: new ObjectId(imgID) }),
-    ]);
+    const article = await Article.findById(imgID);
+
+    const like = await Like.findOne({
+      user: loginID ? loginID : uuid,
+      articleID: new ObjectId(imgID),
+    });
 
     if (!like) {
       const newLike = new Like({
-        user: userID,
+        user: loginID ? loginID : uuid,
         isLike: true,
         articleID: new ObjectId(imgID),
       });
@@ -133,7 +175,10 @@ router.post("/:imgID/like/:userID", async (req, res, next) => {
     } else if (like && like.isLike) {
       article.likeCount--;
       await Promise.all([
-        Like.deleteOne({ user: userID, articleID: new ObjectId(imgID) }),
+        Like.deleteOne({
+          user: loginID ? loginID : uuid,
+          articleID: new ObjectId(imgID),
+        }),
         article.save(),
       ]);
     }
@@ -146,15 +191,19 @@ router.post("/:imgID/like/:userID", async (req, res, next) => {
   }
 });
 
-router.post("/:imgID/comment/:userID", async (req, res, next) => {
+router.post("/:imgID/comment", authJWT, async (req, res, next) => {
   try {
-    const { imgID, userID } = req.params;
+    const { imgID } = req.params;
+    const loginID = req.tokenID;
+    const uuid = req.headers.uuid;
 
+    const userInfo = await User.findOne({ id: loginID });
     const article = await Article.findById(imgID);
 
     const newComment = new Comment({
       articleID: new ObjectId(imgID),
-      user: userID,
+      user: !loginID ? uuid : null,
+      userInfo: loginID ? userInfo : null,
       body: req.body.comment,
       regDate: Date.now(),
     });
@@ -171,7 +220,7 @@ router.post("/:imgID/comment/:userID", async (req, res, next) => {
   }
 });
 
-router.get("/:imgID/comment/:userID", async (req, res, next) => {
+router.get("/:imgID/comment", async (req, res, next) => {
   try {
     const { imgID } = req.params;
     const commentsByArticleID = await Comment.find({
@@ -187,9 +236,21 @@ router.get("/:imgID/comment/:userID", async (req, res, next) => {
   }
 });
 
-router.put("/comment/:commentID", async (req, res, next) => {
+router.put("/comment/:commentID", authJWT, async (req, res, next) => {
+  const loginID = req.tokenID;
+  const uuid = req.headers.uuid;
+
   try {
     const comment = await Comment.findById(req.params.commentID);
+    if (
+      comment.user ? comment.user !== uuid : comment.userInfo.id !== loginID
+    ) {
+      res.status(401).send({
+        success: false,
+        message: "권한이 없습니다.",
+      });
+      return;
+    }
     comment.body = req.body.comment;
     await comment.save();
 
@@ -201,8 +262,22 @@ router.put("/comment/:commentID", async (req, res, next) => {
   }
 });
 
-router.delete("/:imgID/comment/:commentID", async (req, res, next) => {
+router.delete("/:imgID/comment/:commentID", authJWT, async (req, res, next) => {
+  const loginID = req.tokenID;
+  const uuid = req.headers.uuid;
+
   try {
+    const comment = await Comment.findById(req.params.commentID);
+    if (
+      comment.user ? comment.user !== uuid : comment.userInfo.id !== loginID
+    ) {
+      res.status(401).send({
+        success: false,
+        message: "권한이 없습니다.",
+      });
+      return;
+    }
+
     const article = await Article.findById(req.params.imgID);
     article.commentCount--;
     await Promise.all([

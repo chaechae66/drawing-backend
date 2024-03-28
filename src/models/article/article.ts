@@ -1,5 +1,16 @@
 const mongoose = require("mongoose");
 
+const userSchema = new mongoose.Schema({
+  id: {
+    type: String,
+    required: true,
+  },
+  nickname: {
+    type: String,
+    required: true,
+  },
+});
+
 const articleSchema = new mongoose.Schema(
   {
     data: {
@@ -9,8 +20,8 @@ const articleSchema = new mongoose.Schema(
     contentType: { type: String, required: true },
     user: {
       type: String,
-      required: true,
     },
+    userInfo: userSchema,
     regDate: {
       type: Date,
       required: true,

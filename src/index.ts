@@ -6,7 +6,7 @@ let mongoose = require("mongoose"),
 require("dotenv").config();
 
 const article = require("./routes/article");
-const user = require("./routes/user");
+const user = require("./routes/user/user");
 
 const connection = process.env.mongodbURL;
 

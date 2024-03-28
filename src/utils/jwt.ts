@@ -1,15 +1,14 @@
 const jwt = require("jsonwebtoken"),
   mongoose = require("mongoose");
 const secret = process.env.JWTSECRETKEY;
-const Refresh = require("../models/user/refresh");
 
 module.exports = {
-  sign: (user) => {
-    const payload = { id: user.id };
+  sign: (userId) => {
+    const payload = { id: userId };
 
     return jwt.sign(payload, secret, {
       algorithm: "HS256",
-      expiresIn: "1h",
+      expiresIn: "3h",
     });
   },
   verify: (token) => {
@@ -48,17 +47,12 @@ module.exports = {
       expiresIn: "14d",
     });
   },
-  refreshVerify: async (token, userId) => {
+  refreshVerify: async (token) => {
     try {
-      const findToken = Refresh.findOne({ id: userId });
-      if (token === findToken) {
-        try {
-          jwt.verify(token, secret);
-          return true;
-        } catch (err) {
-          return false;
-        }
-      } else {
+      try {
+        jwt.verify(token, secret);
+        return true;
+      } catch (err) {
         return false;
       }
     } catch (err) {

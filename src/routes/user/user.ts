@@ -1,9 +1,15 @@
 const express = require("express"),
   router = express.Router(),
-  bcrypt = require("bcrypt");
-const User = require("../models/user/user");
-const jwt = require("../utils/jwt");
-const Refresh = require("../models/user/refresh");
+  bcrypt = require("bcrypt"),
+  jwt = require("jsonwebtoken");
+const User = require("../../models/user/user");
+const {
+  sign,
+  getExipreAt,
+  refresh,
+  verify,
+  refreshVerify,
+} = require("../../utils/jwt");
 
 router.post("/signup", async (req, res, next) => {
   try {
@@ -71,24 +77,66 @@ router.post("/login", async (req, res, next) => {
       return;
     }
 
-    const accessToken = jwt.sign(findUser);
-    const { id: expiredId } = jwt.getExipreAt(accessToken);
-    const refreshToken = jwt.refresh();
-
-    const refresh = new Refresh({
-      id: findUser.id,
-      refreshToken,
-    });
-
-    await refresh.save();
+    const accessToken = sign(findUser.id);
+    const { id: expiredId } = getExipreAt(accessToken);
+    const refreshToken = refresh();
 
     res.json({
       success: true,
       accessToken,
+      refreshToken,
       id: findUser.id,
       nickname: findUser.nickname,
-      expireAt: expiredId,
+      expiredAt: expiredId,
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get("/retoken", async (req, res, next) => {
+  try {
+    if (req.headers.authorization) {
+      const authToken = req.headers.authorization.split("Bearer ")[1];
+      const refreshToken = req.headers.refreshtoken;
+      const authResult = verify(authToken);
+      const decoded = jwt.decode(authToken);
+      if (decoded === null) {
+        res.status(401).send({
+          success: false,
+          message: "No authorized!",
+        });
+        return;
+      }
+      const refreshResult = await refreshVerify(refreshToken);
+
+      if (!authResult.success && authResult.message === "jwt expired") {
+        if (!refreshResult) {
+          res.status(401).send({
+            success: false,
+            message: "만료되어 다시 로그인해주세요",
+          });
+          return;
+        } else {
+          const newAccessToken = sign(decoded.id);
+          const { id: expiredId } = getExipreAt(newAccessToken);
+          res.status(200).send({
+            success: true,
+            data: {
+              accessToken: newAccessToken,
+              expiredAt: expiredId,
+            },
+          });
+          return;
+        }
+      }
+    } else {
+      res.status(400).send({
+        success: false,
+        message: "Acess token is not expired!",
+      });
+      return;
+    }
   } catch (e) {
     next(e);
   }

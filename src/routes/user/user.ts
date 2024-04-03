@@ -13,11 +13,19 @@ const {
 
 router.post("/signup", async (req, res, next) => {
   try {
-    const { id, password, nickname } = req.body;
+    const { id, password, passwordCheck, nickname } = req.body;
     if (!id || !password || !nickname) {
       res.status(400).send({
         success: false,
         message: "아이디, 비밀번호, nickname은 필수 사항입니다.",
+      });
+      return;
+    }
+
+    if (password !== passwordCheck) {
+      res.status(400).send({
+        success: false,
+        message: "비밀번호와 비밀번호 확인이 다릅니다.",
       });
       return;
     }
@@ -96,44 +104,42 @@ router.post("/login", async (req, res, next) => {
 
 router.get("/retoken", async (req, res, next) => {
   try {
-    if (req.headers.authorization) {
-      const authToken = req.headers.authorization.split("Bearer ")[1];
-      const refreshToken = req.headers.refreshtoken;
-      const authResult = verify(authToken);
-      const decoded = jwt.decode(authToken);
-      if (decoded === null) {
+    if (!req.headers.authorization || !req.headers.refreshtoken) {
+      res.status(400).send({
+        success: false,
+        message: "토큰이 정상적으로 들어오지 않았습니다!",
+      });
+      return;
+    }
+    const authToken = req.headers.authorization.split("Bearer ")[1];
+    const refreshToken = req.headers.refreshtoken;
+    const authResult = verify(authToken);
+    const decoded = jwt.decode(authToken);
+    if (decoded === null) {
+      res.status(401).send({
+        success: false,
+        message: "access token이 유효하지 않습니다.",
+      });
+      return;
+    }
+    const refreshResult = await refreshVerify(refreshToken);
+
+    if (!authResult.success && authResult.message === "jwt expired") {
+      if (!refreshResult) {
         res.status(401).send({
           success: false,
-          message: "No authorized!",
+          message: "만료되어 다시 로그인해주세요",
         });
         return;
       }
-      const refreshResult = await refreshVerify(refreshToken);
-
-      if (!authResult.success && authResult.message === "jwt expired") {
-        if (!refreshResult) {
-          res.status(401).send({
-            success: false,
-            message: "만료되어 다시 로그인해주세요",
-          });
-          return;
-        } else {
-          const newAccessToken = sign(decoded.id);
-          const { id: expiredId } = getExipreAt(newAccessToken);
-          res.status(200).send({
-            success: true,
-            data: {
-              accessToken: newAccessToken,
-              expiredAt: expiredId,
-            },
-          });
-          return;
-        }
-      }
-    } else {
-      res.status(400).send({
-        success: false,
-        message: "Acess token is not expired!",
+      const newAccessToken = sign(decoded.id);
+      const { id: expiredId } = getExipreAt(newAccessToken);
+      res.status(200).send({
+        success: true,
+        data: {
+          accessToken: newAccessToken,
+          expiredAt: expiredId,
+        },
       });
       return;
     }

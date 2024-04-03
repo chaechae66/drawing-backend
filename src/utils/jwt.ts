@@ -49,14 +49,10 @@ module.exports = {
   },
   refreshVerify: async (token) => {
     try {
-      try {
-        jwt.verify(token, secret);
-        return true;
-      } catch (err) {
-        return false;
-      }
+      jwt.verify(token, secret);
+      return true;
     } catch (err) {
-      return;
+      return false;
     }
   },
 };

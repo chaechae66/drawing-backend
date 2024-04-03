@@ -31,8 +31,36 @@ router.post(
   async (req, res, next) => {
     const userUUID = JSON.parse(req.body.user);
     const userID = req.tokenID;
+    if (!userUUID) {
+      res.status(400).send({
+        success: false,
+        message: "UUID가 존재하지 않습니다.",
+      });
+      return;
+    }
+    if (!req.file.buffer || !req.file.mimetype) {
+      res.status(400).send({
+        success: false,
+        message: "들어온 파일이 없습니다.",
+      });
+      return;
+    }
+    if (!Buffer.isBuffer(req.file.buffer)) {
+      res.status(400).send({
+        success: false,
+        message: "유효하지 않는 파일이 들어왔습니다.",
+      });
+      return;
+    }
     try {
       const userInfo = await User.findOne({ id: userID });
+      if (userID && !userInfo) {
+        res.status(401).send({
+          success: false,
+          message: "유저 정보가 일치하지 않습니다.",
+        });
+        return;
+      }
       const article = new Article({
         data: req.file.buffer.toString("base64"),
         contentType: req.file.mimetype,
@@ -72,6 +100,34 @@ router.post(
   async (req, res, next) => {
     const loginID = req.tokenID;
     const uuid = req.headers.uuid;
+    if (!uuid) {
+      res.status(400).send({
+        success: false,
+        message: "UUID가 존재하지 않습니다.",
+      });
+      return;
+    }
+    if (!req.file.buffer || !req.file.mimetype) {
+      res.status(400).send({
+        success: false,
+        message: "들어온 파일이 없습니다.",
+      });
+      return;
+    }
+    if (!req.params.imgID) {
+      res.status(400).send({
+        success: false,
+        message: "들어온 이미지 ID가 없습니다.",
+      });
+      return;
+    }
+    if (!Buffer.isBuffer(req.file.buffer)) {
+      res.status(400).send({
+        success: false,
+        message: "유효하지 않는 파일이 들어왔습니다.",
+      });
+      return;
+    }
     try {
       const post = await Article.findById(req.params.imgID);
 
@@ -97,6 +153,20 @@ router.post(
 router.delete("/:imgID", authJWT, async (req, res, next) => {
   const loginID = req.tokenID;
   const uuid = req.headers.uuid;
+  if (!uuid) {
+    res.status(400).send({
+      success: false,
+      message: "UUID가 존재하지 않습니다.",
+    });
+    return;
+  }
+  if (!req.params.imgID) {
+    res.status(400).send({
+      success: false,
+      message: "들어온 이미지 ID가 없습니다.",
+    });
+    return;
+  }
   try {
     const post = await Article.findById(req.params.imgID);
 
@@ -121,6 +191,13 @@ router.delete("/:imgID", authJWT, async (req, res, next) => {
 });
 
 router.get("/:imgID", async (req, res, next) => {
+  if (!req.params.imgID) {
+    res.status(400).send({
+      success: false,
+      message: "들어온 이미지 ID가 없습니다.",
+    });
+    return;
+  }
   try {
     const detail = await Article.findById(req.params.imgID).lean();
     res.json({
@@ -135,8 +212,32 @@ router.get("/:imgID", async (req, res, next) => {
 router.get("/:imgID/like", authJWT, async (req, res, next) => {
   const loginID = req.tokenID;
   const uuid = req.headers.uuid;
+  if (!uuid) {
+    res.status(400).send({
+      success: false,
+      message: "UUID가 존재하지 않습니다.",
+    });
+    return;
+  }
+  if (!req.params.imgID) {
+    res.status(400).send({
+      success: false,
+      message: "들어온 이미지 ID가 없습니다.",
+    });
+    return;
+  }
   try {
     const { imgID } = req.params;
+
+    const userInfo = await User.findOne({ id: loginID });
+    if (loginID && !userInfo) {
+      res.status(401).send({
+        success: false,
+        message: "유저 정보가 일치하지 않습니다.",
+      });
+      return;
+    }
+
     const likeUsers = await Like.findOne({
       user: loginID ? loginID : uuid,
       articleID: new ObjectId(imgID),
@@ -154,8 +255,31 @@ router.get("/:imgID/like", authJWT, async (req, res, next) => {
 router.post("/:imgID/like", authJWT, async (req, res, next) => {
   const loginID = req.tokenID;
   const uuid = req.headers.uuid;
+  if (!uuid) {
+    res.status(400).send({
+      success: false,
+      message: "UUID가 존재하지 않습니다.",
+    });
+    return;
+  }
+  if (!req.params.imgID) {
+    res.status(400).send({
+      success: false,
+      message: "들어온 이미지 ID가 없습니다.",
+    });
+    return;
+  }
   try {
     const { imgID } = req.params;
+
+    const userInfo = await User.findOne({ id: loginID });
+    if (loginID && !userInfo) {
+      res.status(401).send({
+        success: false,
+        message: "유저 정보가 일치하지 않습니다.",
+      });
+      return;
+    }
 
     const article = await Article.findById(imgID);
 
@@ -192,12 +316,33 @@ router.post("/:imgID/like", authJWT, async (req, res, next) => {
 });
 
 router.post("/:imgID/comment", authJWT, async (req, res, next) => {
-  try {
-    const { imgID } = req.params;
-    const loginID = req.tokenID;
-    const uuid = req.headers.uuid;
+  const { imgID } = req.params;
+  const loginID = req.tokenID;
+  const uuid = req.headers.uuid;
 
+  if (!uuid) {
+    res.status(400).send({
+      success: false,
+      message: "UUID가 존재하지 않습니다.",
+    });
+    return;
+  }
+  if (!imgID) {
+    res.status(400).send({
+      success: false,
+      message: "들어온 이미지 ID가 없습니다.",
+    });
+    return;
+  }
+  try {
     const userInfo = await User.findOne({ id: loginID });
+    if (loginID && !userInfo) {
+      res.status(401).send({
+        success: false,
+        message: "유저 정보가 일치하지 않습니다.",
+      });
+      return;
+    }
     const article = await Article.findById(imgID);
 
     const newComment = new Comment({
@@ -221,8 +366,15 @@ router.post("/:imgID/comment", authJWT, async (req, res, next) => {
 });
 
 router.get("/:imgID/comment", async (req, res, next) => {
+  const { imgID } = req.params;
+  if (!imgID) {
+    res.status(400).send({
+      success: false,
+      message: "들어온 이미지 ID가 없습니다.",
+    });
+    return;
+  }
   try {
-    const { imgID } = req.params;
     const commentsByArticleID = await Comment.find({
       articleID: new ObjectId(imgID),
     }).lean();
@@ -239,9 +391,30 @@ router.get("/:imgID/comment", async (req, res, next) => {
 router.put("/comment/:commentID", authJWT, async (req, res, next) => {
   const loginID = req.tokenID;
   const uuid = req.headers.uuid;
-
+  if (!uuid) {
+    res.status(400).send({
+      success: false,
+      message: "UUID가 존재하지 않습니다.",
+    });
+    return;
+  }
+  if (!req.params.commentID) {
+    res.status(400).send({
+      success: false,
+      message: "들어온 코멘트 ID가 없습니다.",
+    });
+    return;
+  }
   try {
     const comment = await Comment.findById(req.params.commentID);
+    const userInfo = await User.findOne({ id: loginID });
+    if (loginID && !userInfo) {
+      res.status(401).send({
+        success: false,
+        message: "유저 정보가 일치하지 않습니다.",
+      });
+      return;
+    }
     if (
       comment.user ? comment.user !== uuid : comment.userInfo.id !== loginID
     ) {
@@ -265,9 +438,30 @@ router.put("/comment/:commentID", authJWT, async (req, res, next) => {
 router.delete("/:imgID/comment/:commentID", authJWT, async (req, res, next) => {
   const loginID = req.tokenID;
   const uuid = req.headers.uuid;
-
+  if (!uuid) {
+    res.status(400).send({
+      success: false,
+      message: "UUID가 존재하지 않습니다.",
+    });
+    return;
+  }
+  if (!req.params.commentID) {
+    res.status(400).send({
+      success: false,
+      message: "들어온 코멘트 ID가 없습니다.",
+    });
+    return;
+  }
   try {
     const comment = await Comment.findById(req.params.commentID);
+    const userInfo = await User.findOne({ id: loginID });
+    if (loginID && !userInfo) {
+      res.status(401).send({
+        success: false,
+        message: "유저 정보가 일치하지 않습니다.",
+      });
+      return;
+    }
     if (
       comment.user ? comment.user !== uuid : comment.userInfo.id !== loginID
     ) {
